@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>URL Shortener — Demo SPA</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --accent:#22c55e; /* green-500 */
+      --accent-2:#3b82f6; /* blue-500 */
+      --warn:#f59e0b; /* amber-500 */
+      --danger:#ef4444; /* red-500 */
+      --border:#1f2937; /* gray-800 */
+      --chip:#0b1220; /* deep */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#020617);color:var(--text);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,"Helvetica Neue",Arial,sans-serif}
+    .container{max-width:1100px;margin:0 auto;padding:32px 20px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:24px}
+    h1{font-size:clamp(22px,3vw,32px);margin:0}
+    .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border);background:var(--chip);color:var(--muted);padding:8px 12px;border-radius:999px}
+    .tabs{display:flex;gap:8px;background:transparent;margin:12px 0 24px}
+    .tab-btn{background:#0b1220;color:var(--muted);border:1px solid var(--border);padding:10px 14px;border-radius:12px;cursor:pointer;transition:.2s}
+    .tab-btn[aria-selected="true"]{background:linear-gradient(180deg,#0b1220,#0a1427);color:#fff;border-color:#274472;box-shadow:0 0 0 2px rgba(59,130,246,.25) inset}
+
+    .card{background:linear-gradient(180deg,#0b1220,#0a1427);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+    .grid{display:grid;gap:16px}
+    .grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (max-width:880px){.grid.cols-3{grid-template-columns:1fr}.grid.cols-2{grid-template-columns:1fr}}
+
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type="text"], input[type="number"], input[type="url"], textarea{width:100%;padding:12px 12px;border-radius:12px;border:1px solid var(--border);background:#0b1220;color:#fff}
+    input::placeholder{color:#64748b}
+
+    .row{display:grid;grid-template-columns:2.5fr .8fr 1.2fr auto;gap:10px;align-items:end}
+    @media (max-width:880px){.row{grid-template-columns:1fr}}
+
+    .btn{appearance:none;border:1px solid var(--border);background:#0b1220;color:#fff;padding:10px 14px;border-radius:12px;cursor:pointer;transition:.2s}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(180deg,#1f3b6b,#1b335c);border-color:#274472}
+    .btn.accent{background:linear-gradient(180deg,#14532d,#064e3b);border-color:#14532d}
+    .btn.warn{background:linear-gradient(180deg,#4b3a04,#3b2f03);border-color:#4b3a04}
+    .btn.danger{background:linear-gradient(180deg,#450a0a,#3f0a0a);border-color:#7f1d1d}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    .help{font-size:12px;color:var(--muted)}
+    .error{font-size:12px;color:var(--danger)}
+    .success{font-size:12px;color:var(--accent)}
+
+    .results, .stats-list{display:grid;gap:12px}
+    .result-item, .stat-item{border:1px solid var(--border);background:linear-gradient(180deg,#0b1220,#0a1427);border-radius:14px;padding:12px}
+    .muted{color:var(--muted)}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);padding:4px 10px;border-radius:999px;background:#0b1220;color:var(--muted);font-size:12px}
+    .copy{font-size:12px}
+
+    details{border-top:1px dashed var(--border);margin-top:8px;padding-top:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid var(--border);padding:8px;text-align:left;font-size:13px}
+    th{color:#cbd5e1;font-weight:600}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .right{margin-left:auto}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>URL Shortener</h1>
+      <div class="pill" title="Environment">
+        <input id="useMock" type="checkbox" aria-label="Use Mock API" checked />
+        <span>Use Mock API</span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Pages">
+      <button class="tab-btn" role="tab" aria-selected="true" id="tab-shortener" aria-controls="panel-shortener">Shortener</button>
+      <button class="tab-btn" role="tab" aria-selected="false" id="tab-stats" aria-controls="panel-stats">Statistics</button>
+    </nav>
+
+    <!-- Shortener Panel -->
+    <section id="panel-shortener" role="tabpanel" aria-labelledby="tab-shortener" class="card">
+      <div class="grid cols-2" style="align-items:start">
+        <div>
+          <h2 style="margin:6px 0 12px">Create Short Links</h2>
+          <p class="help">Enter up to 5 URLs at once. Optional: validity in minutes, preferred shortcode (letters, digits, - or _).</p>
+        </div>
+        <div>
+          <label for="apiBase">API Base URL (when Mock off)</label>
+          <input id="apiBase" type="url" placeholder="https://api.example.com" />
+        </div>
+      </div>
+
+      <div id="rows" style="margin-top:12px;display:grid;gap:12px"></div>
+
+      <div class="toolbar" style="margin-top:12px">
+        <button id="addRow" class="btn">+ Add Row</button>
+        <div class="right"></div>
+        <button id="submit" class="btn primary">Shorten URLs</button>
+        <button id="clearForm" class="btn warn">Clear</button>
+      </div>
+
+      <div id="formError" class="error" style="margin-top:8px"></div>
+
+      <h3 style="margin:18px 0 8px">Results</h3>
+      <div id="results" class="results" aria-live="polite"></div>
+    </section>
+
+    <!-- Stats Panel -->
+    <section id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden class="card">
+      <div class="toolbar">
+        <h2 style="margin:6px 0">Short Links — Statistics</h2>
+        <div class="right"></div>
+        <button id="exportData" class="btn">Export JSON</button>
+        <label class="pill" for="importJSON" title="Import JSON"><input id="importJSON" type="file" accept="application/json" /> Import</label>
+        <button id="clearAll" class="btn danger">Clear All</button>
+      </div>
+      <div id="stats" class="stats-list" style="margin-top:12px"></div>
+    </section>
+  </div>
+
+  <template id="rowTemplate">
+    <div class="row row-item">
+      <div>
+        <label>Original URL *</label>
+        <input type="url" placeholder="https://example.com/very/long/path" required />
+        <div class="error" data-error="url"></div>
+      </div>
+      <div>
+        <label>Validity (minutes)</label>
+        <input type="number" placeholder="e.g. 60" inputmode="numeric" min="1" step="1" />
+        <div class="error" data-error="validity"></div>
+      </div>
+      <div>
+        <label>Preferred Shortcode</label>
+        <input type="text" placeholder="e.g. promo2025" />
+        <div class="error" data-error="shortcode"></div>
+      </div>
+      <div>
+        <button class="btn" data-action="remove">Remove</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+  // --- Utilities ---
+  const dom = sel => document.querySelector(sel);
+  const fmt = d => new Date(d).toLocaleString();
+  const base62 = () => {
+    const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let s = ''; for(let i=0;i<7;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  };
+  const storageKey = 'shortenerData_v1';
+  const readStore = () => JSON.parse(localStorage.getItem(storageKey) || '[]');
+  const writeStore = v => localStorage.setItem(storageKey, JSON.stringify(v));
+
+  // --- Tabs ---
+  const tabShort = dom('#tab-shortener');
+  const tabStats = dom('#tab-stats');
+  const panelShort = dom('#panel-shortener');
+  const panelStats = dom('#panel-stats');
+  const switchTab = (tab) => {
+    const toStats = tab === 'stats';
+    tabShort.setAttribute('aria-selected', (!toStats).toString());
+    tabStats.setAttribute('aria-selected', toStats.toString());
+    panelShort.hidden = toStats;
+    panelStats.hidden = !toStats;
+    if(toStats) renderStats();
+  };
+  tabShort.addEventListener('click', ()=>switchTab('short'));
+  tabStats.addEventListener('click', ()=>switchTab('stats'));
+
+  // --- Form rows ---
+  const rowsEl = dom('#rows');
+  const rowTpl = dom('#rowTemplate');
+  const addRowBtn = dom('#addRow');
+  const submitBtn = dom('#submit');
+  const clearBtn = dom('#clearForm');
+  const formError = dom('#formError');
+  const MAX_ROWS = 5;
+
+  function validateRow(row){
+    const [urlI, validI, codeI] = row.querySelectorAll('input');
+    const eUrl = row.querySelector('[data-error="url"]');
+    const eVal = row.querySelector('[data-error="validity"]');
+    const eCode = row.querySelector('[data-error="shortcode"]');
+    eUrl.textContent = eVal.textContent = eCode.textContent = '';
+
+    // URL required
+    if(!urlI.value.trim()) { eUrl.textContent = 'URL is required.'; return false; }
+    try {
+      const u = new URL(urlI.value.trim());
+      if(!(u.protocol === 'http:' || u.protocol === 'https:')) throw new Error('invalid');
+    } catch(err) {
+      eUrl.textContent = 'Enter a valid http/https URL.'; return false;
+    }
+
+    // validity optional integer >=1
+    if(validI.value.trim()){
+      const n = Number(validI.value);
+      if(!Number.isInteger(n) || n < 1){ eVal.textContent = 'Validity must be an integer ≥ 1.'; return false; }
+    }
+
+    // shortcode optional pattern
+    if(codeI.value.trim()){
+      if(!/^[A-Za-z0-9_-]{3,30}$/.test(codeI.value.trim())){
+        eCode.textContent = '3–30 chars: letters, digits, - or _'; return false;
+      }
+    }
+
+    return true;
+  }
+
+  function addRow(prefill={}){
+    if(rowsEl.children.length >= MAX_ROWS) return;
+    const node = rowTpl.content.cloneNode(true);
+    const row = node.querySelector('.row-item');
+    const [urlI, validI, codeI] = row.querySelectorAll('input');
+    urlI.value = prefill.url || '';
+    validI.value = prefill.validity || '';
+    codeI.value = prefill.code || '';
+    row.querySelector('[data-action="remove"]').addEventListener('click', ()=>{
+      row.remove(); updateControls();
+    });
+    [urlI, validI, codeI].forEach(i=> i.addEventListener('blur', ()=>validateRow(row)) );
+    rowsEl.appendChild(node);
+    updateControls();
+  }
+
+  function updateControls(){
+    addRowBtn.disabled = rowsEl.children.length >= MAX_ROWS;
+    submitBtn.disabled = rowsEl.children.length === 0;
+  }
+
+  addRowBtn.addEventListener('click', ()=> addRow());
+  clearBtn.addEventListener('click', ()=>{ rowsEl.innerHTML=''; updateControls(); dom('#results').innerHTML=''; formError.textContent=''; });
+
+  // initial 2 rows for convenience
+  addRow(); addRow();
+
+  // --- Submit logic ---
+  const useMock = dom('#useMock');
+  const apiBase = dom('#apiBase');
+  const resultsEl = dom('#results');
+
+  async function handleSubmit(){
+    formError.textContent = '';
+    resultsEl.innerHTML = '';
+
+    const rowNodes = [...rowsEl.querySelectorAll('.row-item')];
+    if(rowNodes.length === 0){ formError.textContent = 'Add at least one row.'; return; }
+
+    // validate all
+    for(const r of rowNodes){ if(!validateRow(r)) { formError.textContent = 'Fix validation errors above.'; return; } }
+
+    // build payload
+    const payload = rowNodes.map(r=>{
+      const [urlI, validI, codeI] = r.querySelectorAll('input');
+      return {
+        originalUrl: urlI.value.trim(),
+        validityMinutes: validI.value.trim() ? Number(validI.value.trim()) : null,
+        preferredShortcode: codeI.value.trim() || null
+      };
+    });
+
+    try{
+      const responses = useMock.checked ? await mockShorten(payload) : await realShorten(payload);
+      // save & render
+      const store = readStore();
+      for(const item of responses){ store.unshift(item); }
+      writeStore(store);
+      renderResults(responses);
+    }catch(err){
+      console.error(err);
+      formError.textContent = err.message || 'Something went wrong.';
+    }
+  }
+
+  submitBtn.addEventListener('click', handleSubmit);
+
+  function renderResults(items){
+    if(!items.length){ resultsEl.innerHTML = '<p class="help">No results.</p>'; return; }
+    resultsEl.innerHTML = '';
+    for(const it of items){
+      const div = document.createElement('div');
+      div.className = 'result-item';
+      const expiry = it.expiresAt ? fmt(it.expiresAt) : '<span class="muted">No expiry</span>';
+      div.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="chip">Short</span>
+          <a href="${it.shortUrl}" class="mono" target="_blank" rel="noopener">${it.shortUrl}</a>
+          <button class="btn copy" data-copy="${it.shortUrl}">Copy</button>
+        </div>
+        <div class="help" style="margin-top:6px">
+          <span>Original:</span> <span class="mono">${it.originalUrl}</span>
+        </div>
+        <div class="help">Created: ${fmt(it.createdAt)} • Expires: ${expiry}</div>
+      `;
+      resultsEl.appendChild(div);
+    }
+    resultsEl.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', async e=>{
+        const v = e.currentTarget.getAttribute('data-copy');
+        try{ await navigator.clipboard.writeText(v); e.currentTarget.textContent = 'Copied'; setTimeout(()=> e.currentTarget.textContent='Copy', 1200); }catch{}
+      });
+    });
+  }
+
+  // --- Mock API ---
+  async function mockShorten(payload){
+    // simulate latency
+    await new Promise(r=>setTimeout(r, 250));
+    const domain = location.origin.replace(/^https?:\/\//,'') || 'sho.rt';
+    const now = Date.now();
+    return payload.map(p=>{
+      const code = p.preferredShortcode || base62();
+      const expiresAt = p.validityMinutes ? now + (p.validityMinutes*60*1000) : null;
+      return {
+        id: crypto.randomUUID(),
+        originalUrl: p.originalUrl,
+        shortUrl: `https://${domain}/${code}`,
+        shortcode: code,
+        createdAt: now,
+        expiresAt,
+        clicks: [] // future data
+      };
+    });
+  }
+
+  // --- Real API (placeholder) ---
+  async function realShorten(payload){
+    const base = apiBase.value.trim().replace(/\/$/,'');
+    if(!base) throw new Error('Provide API Base URL or enable Mock API.');
+    // Example: POST /shorten-batch
+    const res = await fetch(base + '/shorten-batch',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({items: payload})
+    });
+    if(!res.ok) throw new Error('API error: ' + res.status);
+    const data = await res.json();
+    // Expected response shape per item: {originalUrl, shortUrl, shortcode, createdAt, expiresAt}
+    return data.items.map(it=>({...it, clicks: it.clicks || []}));
+  }
+
+  // --- Stats ---
+  function renderStats(){
+    const wrap = dom('#stats');
+    const items = readStore();
+    if(!items.length){
+      wrap.innerHTML = '<p class="help">No short links yet. Create some in the Shortener tab.</p>';
+      return;
+    }
+    wrap.innerHTML = '';
+    items.forEach((it, idx)=>{
+      const total = (it.clicks||[]).length;
+      const expiry = it.expiresAt ? fmt(it.expiresAt) : '<span class="muted">No expiry</span>';
+      const el = document.createElement('div');
+      el.className='stat-item';
+      el.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="chip">Short</span>
+          <a href="${it.shortUrl}" target="_blank" rel="noopener" class="mono">${it.shortUrl}</a>
+          <button class="btn copy" data-copy="${it.shortUrl}">Copy</button>
+          <div class="right"></div>
+          <span class="chip" title="Total Clicks">Clicks: ${total}</span>
+          <button class="btn" data-simulate="${idx}">Simulate Click</button>
+        </div>
+        <div class="help">Created: ${fmt(it.createdAt)} • Expires: ${expiry}</div>
+        <details>
+          <summary>Show detailed click data</summary>
+          ${total ? '' : '<p class="help">No clicks recorded yet.</p>'}
+          <table ${total?'' : 'hidden'}>
+            <thead><tr><th>#</th><th>Timestamp</th><th>Source</th><th>Geo (coarse)</th></tr></thead>
+            <tbody>
+            ${(it.clicks||[]).map((c,i)=>`<tr><td>${i+1}</td><td>${fmt(c.ts)}</td><td>${c.source||'-'}</td><td>${c.geo||'-'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </details>
+      `;
+      wrap.appendChild(el);
+    });
+    wrap.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', async e=>{
+        const v = e.currentTarget.getAttribute('data-copy');
+        try{ await navigator.clipboard.writeText(v); e.currentTarget.textContent = 'Copied'; setTimeout(()=> e.currentTarget.textContent='Copy', 1200); }catch{}
+      });
+    });
+    wrap.querySelectorAll('[data-simulate]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const idx = Number(e.currentTarget.getAttribute('data-simulate'));
+        simulateClick(idx);
+        renderStats();
+      });
+    });
+  }
+
+  function simulateClick(index){
+    const items = readStore();
+    const it = items[index];
+    if(!it) return;
+    const refSources = ['Direct','Email','Search','Social','Ad Campaign','Referral'];
+    const geos = ['North America','South Asia','Western Europe','Southeast Asia','South America','Oceania','Middle East','East Asia','Africa'];
+    it.clicks = it.clicks || [];
+    it.clicks.unshift({ ts: Date.now(), source: refSources[Math.floor(Math.random()*refSources.length)], geo: geos[Math.floor(Math.random()*geos.length)] });
+    writeStore(items);
+  }
+
+  // --- Export/Import/Clear ---
+  dom('#exportData').addEventListener('click', ()=>{
+    const data = readStore();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'shortener-data.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
+  });
+
+  dom('#importJSON').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const text = await file.text();
+    try{ const data = JSON.parse(text); if(Array.isArray(data)) { writeStore(data); renderStats(); alert('Imported.'); } else throw new Error('Invalid file.'); }
+    catch(err){ alert('Failed to import JSON.'); }
+    e.target.value = '';
+  });
+
+  dom('#clearAll').addEventListener('click', ()=>{
+    if(confirm('Delete all locally stored short links and stats?')){ writeStore([]); renderStats(); }
+  });
+
+  </script>
+</body>
+</html>
